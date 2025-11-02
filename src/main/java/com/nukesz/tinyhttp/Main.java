@@ -3,9 +3,49 @@
  */
 package com.nukesz.tinyhttp;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.ServerSocket;
+import java.net.Socket;
+
 public class Main {
 
-    public static void main(String[] args) {
-        System.out.println("Server is running...");
+    public static void main(String[] args) throws Exception {
+        try (ServerSocket serverSocket = new ServerSocket(9090)) {
+            System.out.println("Server is running and waiting for client connections...");
+            while (true) {
+                acceptIncomingClientConnections(serverSocket);
+            }
+        }
+    }
+
+    private static void acceptIncomingClientConnections(ServerSocket serverSocket) throws IOException {
+        Socket clientSocket = serverSocket.accept();
+        System.out.println("Client connected!");
+
+        // Setup input and output streams for communication with the client
+        BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+
+        // Read message from client
+        while (true) {
+            String message = in.readLine();
+            System.out.println("Client says: " + message);
+
+            if (message.isBlank()) {
+                out.println("HTTP/1.1 200 OK");
+                out.println("Date: Sun, 02 Nov 2025 15:00:00 GMT");
+                out.println("Server: tinyhttp/0.1");
+                out.println("Content-Type: text/html; charset=utf-8");
+                out.println("Content-Length: 46");
+                out.println("");
+                out.println("<html><body><h1>Hello world</h1></body></html>");
+                break;
+            }
+        }
+        // Close the client socket
+        clientSocket.close();
     }
 }
