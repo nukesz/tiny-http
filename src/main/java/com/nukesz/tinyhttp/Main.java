@@ -11,17 +11,27 @@ import java.util.List;
 
 public class Main {
 
-    public static void main(String[] args) throws Exception {
-        try (ServerSocket serverSocket = new ServerSocket(9090)) {
-            System.out.println("Server is running and waiting for client connections...");
+    static void main(String[] args) {
+        int portNumber = 9090;
+        try (ServerSocket serverSocket = new ServerSocket(portNumber)) {
+            System.out.println("Tiny HTTP server is running and waiting for client connections...");
             while (true) {
-                acceptIncomingClientConnections(serverSocket);
+                Socket clientSocket = serverSocket.accept();
+                Thread.ofVirtual().start(() -> {
+                    try {
+                        acceptIncomingClientConnections(clientSocket);
+                    } catch (IOException e) {
+                        System.out.println("Exception caught when accepting incoming client");
+                    }
+                });
             }
+        } catch (IOException e) {
+            System.out.println("Exception caught when trying to listen on port " + portNumber + " or listening for a connection");
+            System.out.println(e.getMessage());
         }
     }
 
-    private static void acceptIncomingClientConnections(ServerSocket serverSocket) throws IOException {
-        Socket clientSocket = serverSocket.accept();
+    private static void acceptIncomingClientConnections(Socket clientSocket) throws IOException {
         System.out.println("Client connected!");
 
         List<String> clientMessage = readMessage(clientSocket);
