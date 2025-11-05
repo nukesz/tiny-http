@@ -6,8 +6,11 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Main {
 
@@ -34,22 +37,52 @@ public class Main {
     private static void acceptIncomingClientConnections(Socket clientSocket) throws IOException {
         System.out.println("Client connected!");
 
-        List<String> clientMessage = readMessage(clientSocket);
-        System.out.println("Client says: = " + clientMessage);
+        Request clientMessage = readMessage(clientSocket);
+        System.out.println("Client request := " + clientMessage);
 
         sendResponse(clientSocket);
 
         clientSocket.close();
     }
 
-    private static List<String> readMessage(Socket clientSocket) throws IOException {
+    private static Request readMessage(Socket clientSocket) throws IOException {
         BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        String inputLine;
-        List<String> lines = new ArrayList<>();
-        while ((inputLine = in.readLine()) != null && !inputLine.isBlank()) {
-            lines.add(inputLine);
+        String requestLine = readRequestLine(in);
+        Map<String, String> headers = readHeaders(in);
+        String contentLengthHeader = headers.get("Content-Length");
+        if (contentLengthHeader != null) {
+            readBody(in, Integer.parseInt(contentLengthHeader));
         }
-        return lines;
+
+        String[] requestLineSplit = requestLine.split(" ");
+        return new Request(requestLineSplit[0], requestLineSplit[1], requestLineSplit[2]);
+    }
+
+    private static void readBody(BufferedReader in, int contentLength) throws IOException {
+        char[] bodyBytes = new char[contentLength];
+        int read = 0;
+        while (read < contentLength) {
+            int r = in.read(bodyBytes, read, contentLength - read);
+            if (r == -1) {
+                throw new IOException("Unexpected end of stream");
+            }
+            read += r;
+        }
+        // String body = new String(bodyBytes, StandardCharsets.UTF_8);
+    }
+
+    private static String readRequestLine(BufferedReader in) throws IOException {
+        return in.readLine();
+    }
+
+    private static Map<String, String> readHeaders(BufferedReader in) throws IOException {
+        String inputLine;
+        Map<String, String> headers = new HashMap<>();
+        while ((inputLine = in.readLine()) != null && !inputLine.isBlank()) {
+            String[] header = inputLine.split(":");
+            headers.put(header[0], header[1]);
+        }
+        return headers;
     }
 
     private static void sendResponse(Socket clientSocket) throws IOException {
