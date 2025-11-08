@@ -67,4 +67,25 @@ public class MainTest {
 
         assertEquals(200, response.statusCode(), "Expected 200 OK for POST /");
     }
+
+    @Test
+    public void postJsonRootRequest() throws Exception {
+        URI uri = new URI("http://127.0.0.1:" + PORT + "/");
+
+        String jsonBody = """
+        {
+          "name": "Alice",
+          "age": 30
+        }""";
+
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .timeout(Duration.ofSeconds(5))
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .header("Content-Type", "application/json")
+                .build();
+
+        HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(200, response.statusCode(), "Expected 200 OK for POST /");
+    }
 }
