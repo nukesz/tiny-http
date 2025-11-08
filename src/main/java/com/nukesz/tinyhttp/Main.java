@@ -6,10 +6,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class Main {
@@ -59,16 +56,18 @@ public class Main {
     }
 
     private static void readBody(BufferedReader in, int contentLength) throws IOException {
-        char[] bodyBytes = new char[contentLength];
+        char[] bodyChars = new char[contentLength];
         int read = 0;
         while (read < contentLength) {
-            int r = in.read(bodyBytes, read, contentLength - read);
+            int r = in.read(bodyChars, read, contentLength - read);
             if (r == -1) {
                 throw new IOException("Unexpected end of stream");
             }
             read += r;
         }
-        // String body = new String(bodyBytes, StandardCharsets.UTF_8);
+        String body = new String(bodyChars);
+        System.out.println("Content Length: " + read);
+        System.out.println("Content Body: " + body);
     }
 
     private static String readRequestLine(BufferedReader in) throws IOException {
@@ -79,7 +78,7 @@ public class Main {
         String inputLine;
         Map<String, String> headers = new HashMap<>();
         while ((inputLine = in.readLine()) != null && !inputLine.isBlank()) {
-            String[] header = inputLine.split(":");
+            String[] header = inputLine.split(": ");
             headers.put(header[0], header[1]);
         }
         return headers;
