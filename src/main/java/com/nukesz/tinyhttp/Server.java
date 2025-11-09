@@ -8,12 +8,14 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Tiny HTTP implementing <a href="https://datatracker.ietf.org/doc/html/rfc2616">HTTP/1.1</a>
  */
 public class Server {
     private final int portNumber;
+    private final Map<String, Function<Request, Response>> pathHandles = new HashMap<>();
     private ServerSocket serverSocket;
     private boolean acceptingClients = true;
 
@@ -30,6 +32,10 @@ public class Server {
             System.out.println("Exception caught when trying to listen on port " + portNumber + " or listening for a connection");
             System.out.println(e.getMessage());
         }
+    }
+
+    public void handle(String path, Function<Request, Response> function) {
+        pathHandles.put(path, function);
     }
 
     public void stop() {
@@ -60,7 +66,11 @@ public class Server {
         Request clientMessage = readMessage(clientSocket);
         System.out.println("Client request := " + clientMessage);
 
-        sendResponse(clientSocket);
+        if (pathHandles.containsKey(clientMessage.path())) {
+            sendResponse(clientSocket);
+        } else {
+            sendNotFoundResponse(clientSocket);
+        }
 
         clientSocket.close();
     }
@@ -116,5 +126,17 @@ public class Server {
         out.println("Content-Length: 46");
         out.println("");
         out.println("<html><body><h1>Hello world</h1></body></html>");
+    }
+
+    private void sendNotFoundResponse(Socket clientSocket) throws IOException {
+        PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
+        out.println("HTTP/1.1 404 Not Found");
+        out.println("Date: Sun, 02 Nov 2025 15:00:00 GMT");
+        out.println("Server: tinyhttp/0.1");
+        out.println("Content-Type: text/plain; charset=utf-8");
+        out.println("Content-Length: 13");
+        out.println("Connection: close");
+        out.println("");
+        out.println("404 Not Found");
     }
 }

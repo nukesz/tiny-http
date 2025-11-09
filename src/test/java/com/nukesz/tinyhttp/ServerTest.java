@@ -27,6 +27,9 @@ public class ServerTest {
     public static void setupServer() {
         executorService.submit(() -> {
             server = new Server(PORT);
+            server.handle("/", (request) -> {
+                return new Response(200);
+            });
             server.start();
         });
 
@@ -65,6 +68,19 @@ public class ServerTest {
         HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
 
         assertEquals(200, response.statusCode(), "Expected 200 OK for GET /");
+    }
+
+    @Test
+    public void getNotFoundRequest() throws Exception {
+        URI uri = new URI("http://127.0.0.1:" + PORT + "/notFound/");
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .timeout(Duration.ofSeconds(5))
+                .GET()
+                .build();
+
+        HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(404, response.statusCode(), "Expected 404 Not Found for GET /notFound");
     }
 
     @Test
