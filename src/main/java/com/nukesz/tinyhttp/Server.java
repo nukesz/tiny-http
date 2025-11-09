@@ -14,6 +14,8 @@ import java.util.Map;
  */
 public class Server {
     private final int portNumber;
+    private ServerSocket serverSocket;
+    private boolean acceptingClients = true;
 
     public Server(int portNumber) {
         this.portNumber = portNumber;
@@ -21,6 +23,7 @@ public class Server {
 
     public void start() {
         try (ServerSocket serverSocket = new ServerSocket(portNumber)) {
+            this.serverSocket = serverSocket;
             System.out.println("Tiny HTTP server is running and waiting for client connections...");
             handleConnections(serverSocket);
         } catch (IOException e) {
@@ -29,8 +32,17 @@ public class Server {
         }
     }
 
+    public void stop() {
+        acceptingClients = false;
+        try {
+            serverSocket.close();
+        } catch (IOException e) {
+            System.out.println("Exception caught when trying to close server socket.");
+        }
+    }
+
     private void handleConnections(ServerSocket serverSocket) throws IOException {
-        while (true) {
+        while (acceptingClients) {
             Socket clientSocket = serverSocket.accept();
             Thread.ofVirtual().start(() -> {
                 try {
