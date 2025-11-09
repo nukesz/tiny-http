@@ -1,4 +1,6 @@
 package com.nukesz.tinyhttp;
 
-public record Response(int code) {
+import java.util.Map;
+
+public record Response(HttpStatus status, Map<String, String> headers, String body) {
 }

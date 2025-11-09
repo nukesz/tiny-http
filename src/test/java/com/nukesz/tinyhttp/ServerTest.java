@@ -9,6 +9,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -27,9 +28,7 @@ public class ServerTest {
     public static void setupServer() {
         executorService.submit(() -> {
             server = new Server(PORT);
-            server.handle("/", (request) -> {
-                return new Response(200);
-            });
+            server.handle("/", (request) -> new Response(HttpStatus.OK, Map.of(), null));
             server.start();
         });
 

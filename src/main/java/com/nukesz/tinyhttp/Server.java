@@ -118,25 +118,37 @@ public class Server {
     }
 
     private void sendResponse(Socket clientSocket) throws IOException {
-        PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-        out.println("HTTP/1.1 200 OK");
-        out.println("Date: Sun, 02 Nov 2025 15:00:00 GMT");
-        out.println("Server: tinyhttp/0.1");
-        out.println("Content-Type: text/html; charset=utf-8");
-        out.println("Content-Length: 46");
-        out.println("");
-        out.println("<html><body><h1>Hello world</h1></body></html>");
+        Response response = new Response(
+                HttpStatus.OK,
+                Map.of("Content-Type", "text/html; charset=utf-8",
+                        "Content-Length", "46",
+                        "Connection", "close"),
+                "<html><body><h1>Hello world</h1></body></html>");
+        sendResponse(clientSocket, response);
     }
 
     private void sendNotFoundResponse(Socket clientSocket) throws IOException {
+        Response response = new Response(
+                HttpStatus.NOT_FOUND,
+                Map.of("Content-Type", "text/plain; charset=utf-8",
+                        "Content-Length", "13",
+                        "Connection", "close"),
+                "404 Not Found");
+        sendResponse(clientSocket, response);
+    }
+
+    private void sendResponse(Socket clientSocket, Response response) throws IOException {
         PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-        out.println("HTTP/1.1 404 Not Found");
+        out.println("HTTP/1.1 " + response.status().code() + " " + response.status().reason());
         out.println("Date: Sun, 02 Nov 2025 15:00:00 GMT");
         out.println("Server: tinyhttp/0.1");
-        out.println("Content-Type: text/plain; charset=utf-8");
-        out.println("Content-Length: 13");
-        out.println("Connection: close");
+        for (Map.Entry<String, String> header : response.headers().entrySet()) {
+            out.println(header.getKey() + ": " + header.getValue());
+        }
         out.println("");
-        out.println("404 Not Found");
+        String body = response.body();
+        if (body != null) {
+            out.println(body);
+        }
     }
 }
