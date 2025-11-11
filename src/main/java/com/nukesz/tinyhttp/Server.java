@@ -86,8 +86,9 @@ public class Server {
             readBody(in, Integer.parseInt(contentLengthHeader));
         }
 
-        String[] requestLineSplit = requestLine.split(" ");
-        return new Request(requestLineSplit[0], requestLineSplit[1], requestLineSplit[2]);
+        var requestLineSplit = requestLine.split(" ");
+        var requestMethod = HttpRequestMethod.fromString(requestLineSplit[0]);
+        return new Request(requestMethod, requestLineSplit[1], requestLineSplit[2]);
     }
 
     private void readBody(BufferedReader in, int contentLength) throws IOException {

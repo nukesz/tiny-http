@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -28,27 +29,14 @@ public class ServerTest {
     public static void setupServer() {
         executorService.submit(() -> {
             server = new Server(PORT);
-            server.handle("/", (request) -> new Response(HttpStatus.OK, Map.of(), null));
-            server.handle("/ping", (request) -> new Response(HttpStatus.OK, Map.of(), "Pong"));
+            server.handle("/", (request) -> switch (request.method()) {
+                case GET -> new Response(HttpStatus.OK, Map.of(), null);
+                case POST -> new Response(HttpStatus.CREATED, Map.of(), "Entry created");
+                default -> new Response(HttpStatus.NOT_FOUND, Map.of(), "404 Not Found");
+            });
+            server.handle("/ping", (_) -> new Response(HttpStatus.OK, Map.of(), "Pong"));
             server.start();
         });
-
-//        http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-//            if r.URL.Path != "/" {
-//                http.NotFound(w, r)
-//                return
-//            }
-//
-//            if r.Method == "GET" {
-//                fmt.Fprintf(w, "GET, %q", html.EscapeString(r.URL.Path))
-//            } else if r.Method == "POST" {
-//                fmt.Fprintf(w, "POST, %q", html.EscapeString(r.URL.Path))
-//            } else {
-//                http.Error(w, "Invalid request method.", 405)
-//            }
-//        })
-//
-//        log.Fatal(http.ListenAndServe(":8080", nil))
     }
 
     @AfterAll
@@ -111,7 +99,7 @@ public class ServerTest {
 
         HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
 
-        assertEquals(200, response.statusCode(), "Expected 200 OK for POST /");
+        assertEquals(201, response.statusCode(), "Expected 201 OK for POST /");
     }
 
     @Test
@@ -132,6 +120,6 @@ public class ServerTest {
 
         HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
 
-        assertEquals(200, response.statusCode(), "Expected 200 OK for POST /");
+        assertEquals(201, response.statusCode(), "Expected 201 OK for POST /");
     }
 }
