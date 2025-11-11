@@ -66,8 +66,10 @@ public class Server {
         Request clientMessage = readMessage(clientSocket);
         System.out.println("Client request := " + clientMessage);
 
-        if (pathHandles.containsKey(clientMessage.path())) {
-            sendResponse(clientSocket);
+        Function<Request, Response> pathHandle = pathHandles.get(clientMessage.path());
+        if (pathHandle != null) {
+            Response response = pathHandle.apply(clientMessage);
+            sendResponse(clientSocket, response);
         } else {
             sendNotFoundResponse(clientSocket);
         }
@@ -117,21 +119,10 @@ public class Server {
         return headers;
     }
 
-    private void sendResponse(Socket clientSocket) throws IOException {
-        Response response = new Response(
-                HttpStatus.OK,
-                Map.of("Content-Type", "text/html; charset=utf-8",
-                        "Content-Length", "46",
-                        "Connection", "close"),
-                "<html><body><h1>Hello world</h1></body></html>");
-        sendResponse(clientSocket, response);
-    }
-
     private void sendNotFoundResponse(Socket clientSocket) throws IOException {
         Response response = new Response(
                 HttpStatus.NOT_FOUND,
                 Map.of("Content-Type", "text/plain; charset=utf-8",
-                        "Content-Length", "13",
                         "Connection", "close"),
                 "404 Not Found");
         sendResponse(clientSocket, response);
@@ -140,6 +131,9 @@ public class Server {
     private void sendResponse(Socket clientSocket, Response response) throws IOException {
         PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
         out.println("HTTP/1.1 " + response.status().code() + " " + response.status().reason());
+        if (response.body() != null) {
+            out.println("Content-Length: " + response.body().length());
+        }
         out.println("Date: Sun, 02 Nov 2025 15:00:00 GMT");
         out.println("Server: tinyhttp/0.1");
         for (Map.Entry<String, String> header : response.headers().entrySet()) {
