@@ -132,30 +132,58 @@ public class Server {
 
     private void sendResponse(Socket clientSocket, Response response) throws IOException {
         OutputStream out = clientSocket.getOutputStream();
-        byte[] bodyBytes = response.body() == null
-                ? null
-                : response.body().getBytes(StandardCharsets.UTF_8);
+        byte[] bodyBytes = toBodyBytes(response.body());
+        out.write(buildResponseHeaders(response, bodyBytes).getBytes(StandardCharsets.UTF_8));
+        writeResponseBody(out, bodyBytes);
+        out.flush();
+    }
 
-        StringBuilder responseHeaders = new StringBuilder()
+    private byte[] toBodyBytes(String body) {
+        if (body == null) {
+            return null;
+        }
+        return body.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private String buildResponseHeaders(Response response, byte[] bodyBytes) {
+        StringBuilder responseHeaders = new StringBuilder();
+        appendStatusLine(responseHeaders, response);
+        appendContentLengthHeader(responseHeaders, bodyBytes);
+        appendDefaultHeaders(responseHeaders);
+        appendCustomHeaders(responseHeaders, response.headers());
+        responseHeaders.append("\r\n");
+        return responseHeaders.toString();
+    }
+
+    private void appendStatusLine(StringBuilder responseHeaders, Response response) {
+        responseHeaders
                 .append("HTTP/1.1 ")
                 .append(response.status().code())
                 .append(" ")
                 .append(response.status().reason())
                 .append("\r\n");
+    }
+
+    private void appendContentLengthHeader(StringBuilder responseHeaders, byte[] bodyBytes) {
         if (bodyBytes != null) {
             responseHeaders.append("Content-Length: ").append(bodyBytes.length).append("\r\n");
         }
+    }
+
+    private void appendDefaultHeaders(StringBuilder responseHeaders) {
         responseHeaders.append("Date: Sun, 02 Nov 2025 15:00:00 GMT").append("\r\n");
         responseHeaders.append("Server: tinyhttp/0.1").append("\r\n");
-        for (Map.Entry<String, String> header : response.headers().entrySet()) {
+    }
+
+    private void appendCustomHeaders(StringBuilder responseHeaders, Map<String, String> headers) {
+        for (Map.Entry<String, String> header : headers.entrySet()) {
             responseHeaders.append(header.getKey()).append(": ").append(header.getValue()).append("\r\n");
         }
-        responseHeaders.append("\r\n");
+    }
 
-        out.write(responseHeaders.toString().getBytes(StandardCharsets.UTF_8));
+    private void writeResponseBody(OutputStream out, byte[] bodyBytes) throws IOException {
         if (bodyBytes != null) {
             out.write(bodyBytes);
         }
-        out.flush();
     }
 }
