@@ -8,7 +8,10 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Instant;
 import java.time.Duration;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -141,5 +144,27 @@ public class ServerTest {
                         && response.headers().firstValue("Content-Length").orElseThrow().equals("2"),
                 "Expected byte-accurate Content-Length=2 for UTF-8 body"
         );
+    }
+
+    @Test
+    public void responseDateHeaderIsRfc1123AndCurrent() throws Exception {
+        URI uri = new URI("http://127.0.0.1:" + PORT + "/ping");
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .timeout(Duration.ofSeconds(5))
+                .GET()
+                .build();
+
+        Instant beforeSend = Instant.now();
+        HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+        Instant afterSend = Instant.now();
+
+        String dateHeader = response.headers().firstValue("Date").orElseThrow();
+        Instant dateInstant = ZonedDateTime.parse(dateHeader, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant();
+        Instant lowerBound = beforeSend.minusSeconds(1);
+        Instant upperBound = afterSend.plusSeconds(1);
+
+        assertEquals(200, response.statusCode(), "Expected 200 OK for GET /ping");
+        assertTrue(!dateInstant.isBefore(lowerBound) && !dateInstant.isAfter(upperBound),
+                "Expected Date header to be generated at response time");
     }
 }

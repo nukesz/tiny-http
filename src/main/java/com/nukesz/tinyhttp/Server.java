@@ -7,6 +7,9 @@ import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -171,7 +174,8 @@ public class Server {
     }
 
     private void appendDefaultHeaders(StringBuilder responseHeaders) {
-        responseHeaders.append("Date: Sun, 02 Nov 2025 15:00:00 GMT").append("\r\n");
+        String currentDate = DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now(ZoneOffset.UTC));
+        responseHeaders.append("Date: ").append(currentDate).append("\r\n");
         responseHeaders.append("Server: tinyhttp/0.1").append("\r\n");
     }
 
