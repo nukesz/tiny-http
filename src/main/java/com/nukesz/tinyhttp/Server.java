@@ -3,9 +3,10 @@ package com.nukesz.tinyhttp;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -130,20 +131,31 @@ public class Server {
     }
 
     private void sendResponse(Socket clientSocket, Response response) throws IOException {
-        PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-        out.println("HTTP/1.1 " + response.status().code() + " " + response.status().reason());
-        if (response.body() != null) {
-            out.println("Content-Length: " + response.body().length());
+        OutputStream out = clientSocket.getOutputStream();
+        byte[] bodyBytes = response.body() == null
+                ? null
+                : response.body().getBytes(StandardCharsets.UTF_8);
+
+        StringBuilder responseHeaders = new StringBuilder()
+                .append("HTTP/1.1 ")
+                .append(response.status().code())
+                .append(" ")
+                .append(response.status().reason())
+                .append("\r\n");
+        if (bodyBytes != null) {
+            responseHeaders.append("Content-Length: ").append(bodyBytes.length).append("\r\n");
         }
-        out.println("Date: Sun, 02 Nov 2025 15:00:00 GMT");
-        out.println("Server: tinyhttp/0.1");
+        responseHeaders.append("Date: Sun, 02 Nov 2025 15:00:00 GMT").append("\r\n");
+        responseHeaders.append("Server: tinyhttp/0.1").append("\r\n");
         for (Map.Entry<String, String> header : response.headers().entrySet()) {
-            out.println(header.getKey() + ": " + header.getValue());
+            responseHeaders.append(header.getKey()).append(": ").append(header.getValue()).append("\r\n");
         }
-        out.println("");
-        String body = response.body();
-        if (body != null) {
-            out.println(body);
+        responseHeaders.append("\r\n");
+
+        out.write(responseHeaders.toString().getBytes(StandardCharsets.UTF_8));
+        if (bodyBytes != null) {
+            out.write(bodyBytes);
         }
+        out.flush();
     }
 }

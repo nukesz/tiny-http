@@ -12,9 +12,9 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ServerTest {
 
@@ -35,6 +35,7 @@ public class ServerTest {
                 default -> new Response(HttpStatus.NOT_FOUND, Map.of(), "404 Not Found");
             });
             server.handle("/ping", (_) -> new Response(HttpStatus.OK, Map.of(), "Pong"));
+            server.handle("/unicode", (_) -> new Response(HttpStatus.OK, Map.of(), "é"));
             server.start();
         });
     }
@@ -121,5 +122,24 @@ public class ServerTest {
         HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
 
         assertEquals(201, response.statusCode(), "Expected 201 OK for POST /");
+    }
+
+    @Test
+    public void unicodeResponseContentLengthIsByteAccurate() throws Exception {
+        URI uri = new URI("http://127.0.0.1:" + PORT + "/unicode");
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .timeout(Duration.ofSeconds(5))
+                .GET()
+                .build();
+
+        HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(200, response.statusCode(), "Expected 200 OK for GET /unicode");
+        assertEquals("é", response.body(), "Expected exact UTF-8 body without extra newline");
+        assertTrue(
+                response.headers().firstValue("Content-Length").isPresent()
+                        && response.headers().firstValue("Content-Length").orElseThrow().equals("2"),
+                "Expected byte-accurate Content-Length=2 for UTF-8 body"
+        );
     }
 }
