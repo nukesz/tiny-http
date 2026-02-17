@@ -67,7 +67,14 @@ public class Server {
     private void acceptIncomingClientConnections(Socket clientSocket) throws IOException {
         System.out.println("Client connected!");
 
-        Request clientMessage = readMessage(clientSocket);
+        Request clientMessage;
+        try {
+            clientMessage = readMessage(clientSocket);
+        } catch (IOException e) {
+            sendBadRequestResponse(clientSocket);
+            clientSocket.close();
+            return;
+        }
         System.out.println("Client request := " + clientMessage);
 
         Function<Request, Response> pathHandle = pathHandles.get(clientMessage.path());
@@ -84,13 +91,38 @@ public class Server {
     private Request readMessage(Socket clientSocket) throws IOException {
         BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         String requestLine = readRequestLine(in);
+        // HTTP/1.1 requires a start-line (request-line); empty input is malformed.
+        if (requestLine == null || requestLine.isBlank()) {
+            throw new IOException("Missing request line");
+        }
+
+        String[] requestLineSplit = requestLine.trim().split("\\s+");
+        // Request-line grammar is: METHOD SP request-target SP HTTP-version.
+        if (requestLineSplit.length != 3) {
+            throw new IOException("Malformed request line");
+        }
+
+        // HTTP version token must be an HTTP-version (e.g. HTTP/1.1).
+        if (!requestLineSplit[2].startsWith("HTTP/")) {
+            throw new IOException("Malformed protocol");
+        }
+
         Map<String, String> headers = readHeaders(in);
         String contentLengthHeader = headers.get("Content-Length");
         if (contentLengthHeader != null) {
-            readBody(in, Integer.parseInt(contentLengthHeader));
+            int contentLength;
+            try {
+                // Content-Length must be a decimal non-negative integer.
+                contentLength = Integer.parseInt(contentLengthHeader);
+            } catch (NumberFormatException e) {
+                throw new IOException("Invalid Content-Length header");
+            }
+            if (contentLength < 0) {
+                throw new IOException("Negative Content-Length");
+            }
+            readBody(in, contentLength);
         }
 
-        var requestLineSplit = requestLine.split(" ");
         var requestMethod = HttpRequestMethod.fromString(requestLineSplit[0]);
         return new Request(requestMethod, requestLineSplit[1], requestLineSplit[2]);
     }
@@ -118,10 +150,29 @@ public class Server {
         String inputLine;
         Map<String, String> headers = new HashMap<>();
         while ((inputLine = in.readLine()) != null && !inputLine.isBlank()) {
-            String[] header = inputLine.split(": ");
-            headers.put(header[0], header[1]);
+            // Header fields are "field-name: field-value"; missing ':' is malformed.
+            int separatorIndex = inputLine.indexOf(':');
+            if (separatorIndex <= 0) {
+                throw new IOException("Malformed header");
+            }
+            String headerName = inputLine.substring(0, separatorIndex).trim();
+            String headerValue = inputLine.substring(separatorIndex + 1).trim();
+            // Empty header names are invalid by HTTP field-name grammar.
+            if (headerName.isEmpty()) {
+                throw new IOException("Malformed header name");
+            }
+            headers.put(headerName, headerValue);
         }
         return headers;
+    }
+
+    private void sendBadRequestResponse(Socket clientSocket) throws IOException {
+        Response response = new Response(
+                HttpStatus.BAD_REQUEST,
+                Map.of("Content-Type", "text/plain; charset=utf-8",
+                        "Connection", "close"),
+                "400 Bad Request");
+        sendResponse(clientSocket, response);
     }
 
     private void sendNotFoundResponse(Socket clientSocket) throws IOException {

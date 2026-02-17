@@ -4,10 +4,15 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.Duration;
 import java.time.ZonedDateTime;
@@ -15,13 +20,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ServerTest {
 
-    private static final int PORT = 9090;
+    private static final int PORT = ThreadLocalRandom.current().nextInt(10_000, 60_000);
     private static final HttpClient CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(3))
             .build();
@@ -166,5 +172,38 @@ public class ServerTest {
         assertEquals(200, response.statusCode(), "Expected 200 OK for GET /ping");
         assertTrue(!dateInstant.isBefore(lowerBound) && !dateInstant.isAfter(upperBound),
                 "Expected Date header to be generated at response time");
+    }
+
+    @Test
+    public void malformedRequestLineReturnsBadRequest() throws Exception {
+        String statusLine = sendRawRequestAndReadStatusLine(
+                "GET /only-two-parts\r\n" +
+                "Host: 127.0.0.1\r\n" +
+                "\r\n"
+        );
+
+        assertEquals("HTTP/1.1 400 Bad Request", statusLine, "Expected 400 for malformed request line");
+    }
+
+    @Test
+    public void malformedHeaderReturnsBadRequest() throws Exception {
+        String statusLine = sendRawRequestAndReadStatusLine(
+                "GET / HTTP/1.1\r\n" +
+                "Host 127.0.0.1\r\n" +
+                "\r\n"
+        );
+
+        assertEquals("HTTP/1.1 400 Bad Request", statusLine, "Expected 400 for malformed header");
+    }
+
+    private String sendRawRequestAndReadStatusLine(String rawRequest) throws Exception {
+        try (Socket socket = new Socket("127.0.0.1", PORT)) {
+            OutputStream out = socket.getOutputStream();
+            out.write(rawRequest.getBytes(StandardCharsets.UTF_8));
+            out.flush();
+
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            return in.readLine();
+        }
     }
 }
